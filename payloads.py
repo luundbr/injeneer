@@ -1,11 +1,14 @@
 import re
 from bs4 import BeautifulSoup
 import requests
+import json
 
-class Parser:
+class Monkey:
     forms = []
     url = ''
     js_endpoints = []
+    js_http_methods = []
+
 
     protocol = ''
     host = ''
@@ -17,11 +20,9 @@ class Parser:
         self.host = url.split("://")[1].split("/")[0]
 
         response = requests.get(url)
-
         soup = BeautifulSoup(response.content, "html.parser")
 
         self.forms = soup.find_all("form")
-
         self.inputs = soup.find_all("input")
 
         for form in self.forms:
@@ -32,15 +33,31 @@ class Parser:
 
         # extract js
         scripts = soup.find_all("script")
-        js_code = ""
-        for script in scripts:
-            if script.string:
-                js_code += script.string
+        js_code = "".join(script.string for script in scripts if script.string)
 
-        # extract urls from js
-        pattern = r"(fetch|axios|\.ajax|\.get|\.post|XMLHttpRequest)\(['\"](.*?)['\"]"
-        matches = re.findall(pattern, js_code)
-        self.js_endpoints = [match[1] for match in matches]
+        # extract methods
+        self.extract_js_endpoints_and_methods(js_code)
+
+    def extract_js_endpoints_and_methods(self, js_code):
+        pattern = r"""
+            (fetch|axios\.(get|post)|\.ajax|\.get|\.post|XMLHttpRequest)\(.*?['\"](.*?)['\"]
+            | # OR
+            method:\s*['\"](GET|POST|PUT|DELETE)['\"]
+        """
+        matches = re.findall(pattern, js_code, re.IGNORECASE | re.VERBOSE)
+
+        self.js_endpoints = []
+        self.js_http_methods = []
+
+        for match in matches:
+            function, http_method, url, method_in_obj = match
+            if function:
+                method = 'GET' if 'get' in function.lower() else 'POST'
+                self.js_endpoints.append(url)
+                self.js_http_methods.append(http_method.upper() if http_method else method)
+            elif method_in_obj:
+                # update the last method if specified in an object (for 'fetch' or '.ajax')
+                self.js_http_methods[-1] = method_in_obj
 
     def get_inputs(self):
         return self.inputs
@@ -50,6 +67,9 @@ class Parser:
     
     def get_js_endpoints(self):
         return self.js_endpoints
+    
+    def get_js_http_methods(self):
+        return self.js_http_methods
     
     def get_js_urls(self):
         return [(self.protocol + self.host + e) for e in self.js_endpoints]
@@ -69,7 +89,24 @@ class Parser:
 
             form_data.update(custom_data)
 
-            response = requests.post(action_url, data=form_data)
+            headers = {
+                'Content-Type': 'application/json'
+            }
 
-            print(response.content)
+            response = requests.post(self.protocol + self.host + action_url, data=json.dumps(form_data), headers=headers)
 
+            return response.content
+
+    def inject_fetch(self, custom_data):
+        for (method, url) in zip(self.get_js_http_methods(), self.get_js_urls()):
+            if method == 'GET':
+                response = requests.get(url, params=custom_data)
+            elif method == 'POST':
+                headers = {
+                    'Content-Type': 'application/json'
+                }
+                response = requests.post(url, data=json.dumps(custom_data), headers=headers)
+            else:
+                print(f"unhandled method: {method} for url: {url}")
+
+            return response.content

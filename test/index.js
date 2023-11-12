@@ -12,6 +12,7 @@ app.get('/home', (req, res) => {
 });
 
 app.post('/run-command', (req, res) => {
+    console.log('BODY', req.body);
     const { command } = req.body;
     exec(command, (error, stdout, stderr) => {
         if (error) {

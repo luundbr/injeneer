@@ -2,30 +2,80 @@
 
 import socket
 import time
+import threading
 
-def reverse_listener(ip, port):
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((ip, port))
-    server_socket.listen(1)
-    
-    print(f"Listening on {ip}:{port}")
+class ReverseListener:
+    def __init__(self, ip, port, once=True, cb=None):
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.bind((ip, port))
+        self.server_socket.listen(5)
+        self.once = once
+        self.cb = cb
+        self.listening_thread = None
+        self.client_threads = []
+        self.active = False
+        self.client_connections = []
 
-    conn, addr = server_socket.accept()
+    def handle_client(self, conn, addr):
+        print(f"{addr} connected")
+        with conn:
+            while self.active:
+                if self.cb:
+                    cmd = self.cb()
+                else:
+                    cmd = input("Enter command: ")
 
-    print(addr, 'connected')
+                conn.send((cmd + '\n').encode())
 
-    while 1:
-        cmd = input()
+                data = conn.recv(1024)
+                if not data:
+                    break
 
-        conn.send((cmd + '\n').encode())
+                print(data.decode())
 
-        data = conn.recv(1024)
+                if self.once:
+                    break
 
-        print(data.decode())
+                time.sleep(0.250)
 
-        time.sleep(0.250)
-        
-    conn.close()
+        print(f"Connection with {addr} closed")
+        self.client_connections.remove(conn)
+
+    def start_listening(self):
+        while self.active:
+            conn, addr = self.server_socket.accept()
+            self.client_connections.append(conn)
+            client_thread = threading.Thread(target=self.handle_client, args=(conn, addr))
+            client_thread.daemon = True
+            client_thread.start()
+            self.client_threads.append(client_thread)
+
+    def start(self):
+        self.active = True
+        print(f"Listening on {self.server_socket.getsockname()}")
+        self.listening_thread = threading.Thread(target=self.start_listening)
+        self.listening_thread.daemon = True
+        self.listening_thread.start()
+
+    def stop(self):
+        self.active = False
+
+        for conn in self.client_connections:
+            conn.close()
+
+        self.server_socket.close()
+
+        self.listening_thread.join()
+
+        for client_thread in self.client_threads:
+            client_thread.join()
+
+        print("Server stopped")
 
 if __name__ == "__main__":
-    reverse_listener("127.0.0.1", 8999)
+    try:
+        listener = ReverseListener('127.0.0.1', 8999, once=False)
+        time.sleep(10)
+    finally:
+        listener.stop()
+    
