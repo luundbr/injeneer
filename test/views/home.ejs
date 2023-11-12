@@ -1,0 +1,36 @@
+
+<!-- FILEPATH: /home/cloud/git/injector/test/views/home.ejs -->
+
+<form action="/run-command" method="POST">
+        <label for="command">Field:</label>
+        <input type="text" id="command" name="command">
+        <button type="submit">Execute</button>
+</form>
+
+<br>
+<br>
+
+<input type="text" id="outsideInp" name="outsideInp">
+<button type="submit" onclick="sendFetch()">Outside</button>
+
+<script>
+
+    function sendFetch() {
+        const outsideInp = document.getElementById("outsideInp").value;
+
+        fetch("/run-command", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                command: outsideInp
+            })
+        })
+        .then(response => response.json())
+        .then(data => console.log(data))
+        .catch(error => console.error(error));
+    }
+
+</script>
+
