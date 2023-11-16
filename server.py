@@ -3,6 +3,7 @@
 import socket
 import time
 import threading
+import re
 
 class ReverseListener:
     def __init__(self, ip, port, once=True, cb=None):
@@ -19,6 +20,7 @@ class ReverseListener:
 
     def handle_client(self, conn, addr):
         print(f"{addr} connected")
+        conn.settimeout(1) # socket-level timeout is ignored here for some reason
         with conn:
             while self.active:
                 if self.cb:
@@ -28,11 +30,36 @@ class ReverseListener:
 
                 conn.send((cmd + '\n').encode())
 
-                data = conn.recv(1024)
+                try:
+                    data = conn.recv(1024)
+                except socket.timeout:
+                    continue
+
                 if not data:
                     break
 
-                print(data.decode())
+                ansi_escape = re.compile(r'\x1b\[.*?m|\x1b\]0;.*?\x07')
+
+                all_recv = []
+
+                raw_data = [data]
+
+                while True:
+                    if not data:
+                        break
+                    d_string = data.decode()
+                    d_clean = ansi_escape.sub('', d_string) # prevent OSC from breaking the terminal
+                    all_recv.append(d_clean)
+                    try:
+                        data = conn.recv(1024)
+                        if data == raw_data[-1]:
+                            break
+                        else:
+                            raw_data.append(data)
+                    except OSError:
+                        break
+
+                print("".join(all_recv))
 
                 if self.once:
                     break
@@ -43,10 +70,10 @@ class ReverseListener:
         self.client_connections.remove(conn)
 
     def start_listening(self):
-        self.server_socket.settimeout(1) # accept() is blocking, the loop can't check for active otherwise
         while self.active:
             try:
                 conn, addr = self.server_socket.accept()
+                self.server_socket.settimeout(1) # accept() and recv() are blocking, the loop can't check for active otherwise
                 self.client_connections.append(conn)
                 client_thread = threading.Thread(target=self.handle_client, args=(conn, addr))
                 client_thread.daemon = True
@@ -79,7 +106,8 @@ class ReverseListener:
 
 if __name__ == "__main__":
     try:
-        listener = ReverseListener('127.0.0.1', 8999, once=False)
+        listener = ReverseListener('127.0.0.1', 8999, once=True)
+        listener.start()
         time.sleep(10)
     finally:
         listener.stop()

