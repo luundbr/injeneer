@@ -15,6 +15,7 @@ class ReverseListener:
         self.client_threads = []
         self.active = False
         self.client_connections = []
+        self.kill = False
 
     def handle_client(self, conn, addr):
         print(f"{addr} connected")
@@ -42,13 +43,17 @@ class ReverseListener:
         self.client_connections.remove(conn)
 
     def start_listening(self):
+        self.server_socket.settimeout(1) # accept() is blocking, the loop can't check for active otherwise
         while self.active:
-            conn, addr = self.server_socket.accept()
-            self.client_connections.append(conn)
-            client_thread = threading.Thread(target=self.handle_client, args=(conn, addr))
-            client_thread.daemon = True
-            client_thread.start()
-            self.client_threads.append(client_thread)
+            try:
+                conn, addr = self.server_socket.accept()
+                self.client_connections.append(conn)
+                client_thread = threading.Thread(target=self.handle_client, args=(conn, addr))
+                client_thread.daemon = True
+                client_thread.start()
+                self.client_threads.append(client_thread)
+            except OSError: # timeout err
+                continue
 
     def start(self):
         self.active = True
