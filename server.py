@@ -5,6 +5,8 @@ import time
 import threading
 import re
 
+from itertools import chain
+
 class ReverseListener:
     def __init__(self, ip, port, once=True, cb=None):
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -17,10 +19,19 @@ class ReverseListener:
         self.active = False
         self.client_connections = []
         self.kill = False
+        self.all_recv = []
+        # need a mapping of client ips to inner indices
+
+    def get_recv(self):
+        return "".join(chain.from_iterable(self.all_recv))
 
     def handle_client(self, conn, addr):
         print(f"{addr} connected")
         conn.settimeout(1) # socket-level timeout is ignored here for some reason
+
+        self.all_recv.append([])
+        client_index = len(self.all_recv) - 1 # race condition on multiple clients?
+
         with conn:
             while self.active:
                 if self.cb:
@@ -40,8 +51,6 @@ class ReverseListener:
 
                 ansi_escape = re.compile(r'\x1b\[.*?m|\x1b\]0;.*?\x07')
 
-                all_recv = []
-
                 raw_data = [data]
 
                 while True:
@@ -49,7 +58,7 @@ class ReverseListener:
                         break
                     d_string = data.decode()
                     d_clean = ansi_escape.sub('', d_string) # prevent OSC from breaking the terminal
-                    all_recv.append(d_clean)
+                    self.all_recv[client_index].append(d_clean)
                     try:
                         data = conn.recv(1024)
                         if data == raw_data[-1]:
@@ -59,7 +68,7 @@ class ReverseListener:
                     except OSError:
                         break
 
-                print("".join(all_recv))
+                # print("".join(self.all_recv))
 
                 if self.once:
                     break

@@ -21,7 +21,7 @@ app.post('/run-command', (req, res) => {
         }
         console.log(`stdout: ${stdout}`);
         console.error(`stderr: ${stderr}`);
-        res.send('Command executed successfully');
+        res.send('SUCCESS');
     });
 });
 

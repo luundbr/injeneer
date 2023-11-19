@@ -188,7 +188,7 @@ class Monkey:
             form_data.update(custom_data)
 
             headers = {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json' # can be x-www-form-urlencoded as well depending on the target server
             }
 
             response = requests.post(self.protocol + self.host + action_url, data=json.dumps(form_data), headers=headers)
