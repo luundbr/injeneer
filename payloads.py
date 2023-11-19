@@ -93,8 +93,6 @@ class Generator:
         subprocess.run(compiler_args)
         subprocess.run(['strip', '-s', compiled_path])
         
-        # os.chmod(p, 0o777)
-
         payload = None
 
         with open(compiled_path, 'rb') as file:
