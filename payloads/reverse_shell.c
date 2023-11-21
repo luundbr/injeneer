@@ -6,8 +6,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-const char* IP = "test";
-const int PORT = 80;
+const char* IP = "127.0.0.1";
+const int PORT = 12333;
 
 int main() {
     const char* server_ip = IP;

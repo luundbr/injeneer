@@ -8,7 +8,7 @@ import re
 from itertools import chain
 
 class ReverseListener:
-    def __init__(self, ip, port, once=True, cmd_cb=None, recv_cb=None):
+    def __init__(self, ip, port, once=True, cmd_cb=None, recv_cb=None, success_cb=None):
         port = int(port)
 
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -17,6 +17,7 @@ class ReverseListener:
         self.once = once
         self.cmd_cb = cmd_cb
         self.recv_cb = recv_cb
+        self.success_cb = success_cb
         self.listening_thread = None
         self.client_threads = []
         self.active = False
@@ -30,6 +31,8 @@ class ReverseListener:
 
     def handle_client(self, conn, addr):
         print(f"{addr} connected")
+        if self.success_cb:
+            self.success_cb(addr)
         conn.settimeout(1) # socket-level timeout is ignored here for some reason
 
         self.all_recv.append([])
