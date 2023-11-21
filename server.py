@@ -8,12 +8,15 @@ import re
 from itertools import chain
 
 class ReverseListener:
-    def __init__(self, ip, port, once=True, cb=None):
+    def __init__(self, ip, port, once=True, cmd_cb=None, recv_cb=None):
+        port = int(port)
+
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((ip, port))
         self.server_socket.listen(5)
         self.once = once
-        self.cb = cb
+        self.cmd_cb = cmd_cb
+        self.recv_cb = recv_cb
         self.listening_thread = None
         self.client_threads = []
         self.active = False
@@ -34,8 +37,8 @@ class ReverseListener:
 
         with conn:
             while self.active:
-                if self.cb:
-                    cmd = self.cb()
+                if self.cmd_cb:
+                    cmd = self.cmd_cb()
                 else:
                     cmd = input("Enter command: ")
 
@@ -68,7 +71,8 @@ class ReverseListener:
                     except OSError:
                         break
 
-                # print("".join(self.all_recv))
+                if self.recv_cb:
+                    self.recv_cb(raw_data)
 
                 if self.once:
                     break

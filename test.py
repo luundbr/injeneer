@@ -80,7 +80,7 @@ print('-------------------------Payload injection tests---------------------')
 ip = "127.0.0.1"
 port = random.randint(12000, 20000)
 
-listener = ReverseListener(ip, port, once=True, cb=lambda: 'whoami')
+listener = ReverseListener(ip, port, once=True, cmd_cb=lambda: 'whoami')
 
 listener.start()
 
@@ -100,7 +100,7 @@ print('----------------shell:----------------')
 ip = "127.0.0.1"
 port = random.randint(12000, 20000)
 
-listener = ReverseListener(ip, port, once=True, cb=lambda: 'whoami')
+listener = ReverseListener(ip, port, once=True, cmd_cb=lambda: 'whoami')
 
 listener.start()
 
@@ -121,7 +121,7 @@ print('----------------binary:----------------')
 ip = "127.0.0.1"
 port = random.randint(12000, 20000)
 
-listener = ReverseListener(ip, port, once=True, cb=lambda: 'whoami')
+listener = ReverseListener(ip, port, once=True, cmd_cb=lambda: 'whoami')
 
 listener.start()
 

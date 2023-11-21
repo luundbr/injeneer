@@ -84,7 +84,6 @@ class Monkey:
     js_endpoints = []
     js_http_methods = []
 
-
     protocol = ''
     host = ''
 
@@ -148,6 +147,30 @@ class Monkey:
     
     def get_js_urls(self):
         return [(self.protocol + self.host + e) for e in self.js_endpoints]
+    
+    def autoinject_forms(self, payload):
+        injectable = {}
+        form_inputs = self.get_forms()[0].find_all("input")
+
+        for form_input in form_inputs:
+            injectable[form_input.get("name")] = payload
+
+        res = self.inject_forms(injectable)
+
+        return res.decode()
+    
+    def autoinject_urls(self, payload):
+        injectable = {}
+        inputs = self.get_inputs()
+        js_urls = self.get_js_urls()
+
+        for (input, url) in zip(inputs, js_urls):
+            print(input, url)
+            injectable[input.get("name")] = payload
+
+        res = self.inject_fetch(injectable)
+
+        return res.decode()
 
     def inject_forms(self, custom_data):
         for form in self.forms:
