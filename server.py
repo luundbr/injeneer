@@ -7,6 +7,85 @@ import re
 
 from itertools import chain
 
+class ControlTower:
+    def __init__(self, ip, port, payload = b'\x01', timeout=1, recv_cb=None, success_cb=None): # payload is nop by default
+
+        self.recv_cb = recv_cb
+        self.success_cb = success_cb
+
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server_socket.bind((ip, port))
+        self.server_socket.listen(5)
+
+        self.listening_thread = None
+
+        self.client_threads = []
+
+        self.client_connections = []
+
+        self.active = False
+
+        self.timeout = timeout
+
+        self.payload = payload
+
+    def handle_client(self, conn, addr):
+        print(f"{addr} connected")
+        if self.success_cb:
+            self.success_cb(addr)
+        conn.settimeout(self.timeout)
+
+        with conn:
+            while self.active:
+                try:
+                    data = conn.recv(1024)
+                except socket.timeout:
+                    pass
+
+                # todo do something with data
+
+                to_send = self.payload
+
+                conn.send(to_send) # .encode()
+
+                break
+
+    def start_listening(self):
+        while self.active:
+            try:
+                conn, addr = self.server_socket.accept()
+                self.server_socket.settimeout(self.timeout)
+                self.client_connections.append(conn)
+                client_thread = threading.Thread(target=self.handle_client, args=(conn, addr))
+                client_thread.daemon = True
+                client_thread.start()
+                self.client_threads.append(client_thread)
+            except OSError: # timeout err
+                continue
+
+    def start(self):
+        self.active = True
+        print(f"Listening on {self.server_socket.getsockname()}")
+        self.listening_thread = threading.Thread(target=self.start_listening)
+        self.listening_thread.daemon = True
+        self.listening_thread.start()
+
+    def stop(self):
+        self.active = False
+
+        for conn in self.client_connections:
+            conn.close()
+
+        self.server_socket.close()
+
+        self.listening_thread.join()
+
+        for client_thread in self.client_threads:
+            client_thread.join()
+
+        print("Server stopped")
+
+
 class ReverseListener:
     def __init__(self, ip, port, once=True, cmd_cb=None, recv_cb=None, success_cb=None):
         port = int(port)
@@ -22,8 +101,8 @@ class ReverseListener:
         self.client_threads = []
         self.active = False
         self.client_connections = []
-        self.kill = False
         self.all_recv = []
+        self.kill = False
         # need a mapping of client ips to inner indices
 
     def get_recv(self):

