@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 const char *IP = "127.0.0.1";
-const int PORT = 19386;
+const int PORT = 16740;
 
 int main() {
   const char *server_ip = IP;
@@ -48,7 +48,7 @@ int main() {
 
   int (*ret)() = (int (*)())buffer;
 
-  ret();
+  // ret();
 
   close(sock);
 
