@@ -2,7 +2,7 @@ Low-brow mix of sqlmap and metasploit, in the sense that this tool looks for RCE
 
 
 TODO:
-    hellow world payload executes, need to write a test for that and fix the boilerplate around\
+    hello world payload executes, need to write a test for that and fix the boilerplate around\
     csrf tokens/cookies/impersonation\
     easy file passthrough\
     port forwarding\
