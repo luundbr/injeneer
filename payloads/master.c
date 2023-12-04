@@ -7,7 +7,7 @@
 #include <unistd.h>
 
 const char *IP = "127.0.0.1";
-const int PORT = 19386;
+const int PORT = 15399;
 
 int main() {
   const char *server_ip = IP;

