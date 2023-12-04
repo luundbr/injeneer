@@ -7,8 +7,9 @@ import re
 
 from itertools import chain
 
+
 class ControlTower:
-    def __init__(self, ip, port, payload = b'\x01', timeout=1, recv_cb=None, success_cb=None): # payload is nop by default
+    def __init__(self, ip, port, payload=b'\x01', timeout=1, recv_cb=None, success_cb=None):
 
         self.recv_cb = recv_cb
         self.success_cb = success_cb

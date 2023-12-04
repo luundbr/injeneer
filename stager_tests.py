@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from payloads import Generator
+from payloads import Generator, extract_machine_code
 from server import ControlTower
 
 import os
@@ -9,6 +9,8 @@ import time
 import random
 import subprocess
 import threading
+import struct
+import ast
 
 
 print('---------Stager communication test---------')
@@ -16,16 +18,25 @@ print('---------Stager communication test---------')
 ip = "127.0.0.1"
 port = random.randint(12000, 20000)
 
-payload = \
+# hand copied payload printing hello world
+_payload = \
 b'\xeb\x17\x59\x31\xc0\xb0\x04\x31\xdb\xb3\x01\x31\xd2\xb2\x0d\xcd\x80\x31\xc0\xb0\x01\x31\xdb\xcd\x80\xe8\xe4\xff\xff\xff\x48\x65\x6c\x6c\x6f\x20\x57\x6f\x72\x6c\x64\x0a'
+
+p_raw = extract_machine_code('hw.o')
+
+payload = ast.literal_eval(f"b'{p_raw}'")
+
+print('Machine code extraction test')
+assert payload == _payload
+print('PASSED✓')
 
 ct = ControlTower(ip, port, payload)
 
 ct.start()
 
-compiled_path = 'tmp/cmaster' # fixme
+compiled_path = 'tmp/cmaster'  # fixme
 
-_ = Generator.bin_master(ip, port) # just compile
+_ = Generator.bin_master(ip, port)  # just compile
 
 input()
 quit()
@@ -36,7 +47,7 @@ out, err = proc.communicate()
 
 print(out)
 print(err)
-assert b'\x01' in out # nop is the default payload
+assert b'\x01' in out  # nop is the default payload
 assert len(err) == 0
 
 print('PASSED✓')
