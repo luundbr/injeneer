@@ -8,7 +8,7 @@
 #include <sys/mman.h>
 
 const char *IP = "127.0.0.1";
-const int PORT = 15213;
+const int PORT = 14317;
 
 int main() {
   const char *server_ip = IP;

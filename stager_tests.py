@@ -25,7 +25,6 @@ b'\xeb\x1d\x5e\x48\x31\xc0\xb0\x01\x48\x31\xff\x40\xb7\x01\x48\x31\xd2\xb2\x0d\x
 p_raw = extract_machine_code('hw.o')
 
 payload = ast.literal_eval(f"b'{p_raw}'")
-print(payload)
 
 print('Machine code extraction test')
 assert payload == _payload
@@ -39,16 +38,10 @@ compiled_path = 'tmp/cmaster'  # fixme
 
 _ = Generator.bin_master(ip, port)  # just compile
 
-input()
-quit()
 proc = subprocess.Popen(['./tmp/cmaster'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 out, err = proc.communicate()
 
-# sometime in the future the payload will not print anything to stdout..
-
-print(out)
-print(err)
-assert b'\x01' in out  # nop is the default payload
+assert b'Hello World' in out
 assert len(err) == 0
 
 print('PASSED✓')
