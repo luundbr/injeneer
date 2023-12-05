@@ -27,8 +27,12 @@ p_raw = extract_machine_code('hw.o')
 payload = ast.literal_eval(f"b'{p_raw}'")
 
 print('Machine code extraction test')
+
 assert payload == _payload
+
 print('PASSED✓')
+
+print('\nHello world shellcode test')
 
 ct = ControlTower(ip, port, payload)
 
@@ -45,3 +49,5 @@ assert b'Hello World' in out
 assert len(err) == 0
 
 print('PASSED✓')
+
+print('\nALL TESTS PASSED✓✓✓')
