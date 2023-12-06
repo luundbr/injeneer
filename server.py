@@ -9,7 +9,7 @@ from itertools import chain
 
 
 class ControlTower:
-    def __init__(self, ip, port, payload=b'\x01', timeout=1, recv_cb=None, success_cb=None):
+    def __init__(self, ip, port, timeout=1, recv_cb=None, success_cb=None):
 
         self.recv_cb = recv_cb
         self.success_cb = success_cb
@@ -28,28 +28,32 @@ class ControlTower:
 
         self.timeout = timeout
 
-        self.payload = payload
+    def inject_stage(self, code, client_idx=0):
+        if len(self.client_connections) == 0:
+            print('No clients have connected yet')
+            return
 
-    def handle_client(self, conn, addr):
-        print(f"{addr} connected")
-        if self.success_cb:
-            self.success_cb(addr)
+        conn = self.client_connections[client_idx]
+
         conn.settimeout(self.timeout)
 
         with conn:
             while self.active:
                 try:
-                    data = conn.recv(1024)
+                    _ = conn.recv(1024)  # todo?
                 except socket.timeout:
                     pass
 
-                # todo do something with data
+                to_send = code
 
-                to_send = self.payload
-
-                conn.send(to_send) # .encode()
+                conn.send(to_send)  # .encode()
 
                 break
+
+    def handle_client(self, conn, addr):
+        print(f"{addr} connected")
+        if self.success_cb:
+            self.success_cb(addr)
 
     def start_listening(self):
         while self.active:

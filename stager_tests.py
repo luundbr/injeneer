@@ -34,18 +34,21 @@ print('PASSED✓')
 
 print('\nHello world shellcode test')
 
-ct = ControlTower(ip, port, payload)
+ct = ControlTower(ip, port)
 
 ct.start()
 
 compiled_path = 'tmp/cmaster'  # fixme
 
-_ = Generator.bin_master(ip, port)  # just compile
+_ = Generator.bin_stager(ip, port)  # just compile
 
 proc = subprocess.Popen(['./tmp/cmaster'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-out, err = proc.communicate()
 
-print(out)
+time.sleep(2)
+
+ct.inject_stage(payload)
+
+out, err = proc.communicate()
 
 assert b'Hello World' in out
 assert len(err) == 0

