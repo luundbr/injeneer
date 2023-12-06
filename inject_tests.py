@@ -4,8 +4,6 @@
 
 from payloads import Monkey, Generator
 
-from test_py.vulnserver import app
-
 import os
 import pwd
 import time
@@ -26,7 +24,7 @@ def run_test_server():
     if backend == 'express':
         os.system('cd test_js && node vulnserver.js > /dev/null')
     else:
-        app.run(debug=True, port=3111)
+        pass
 
 
 srv_proc = None

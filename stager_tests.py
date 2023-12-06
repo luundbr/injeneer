@@ -45,6 +45,8 @@ _ = Generator.bin_master(ip, port)  # just compile
 proc = subprocess.Popen(['./tmp/cmaster'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 out, err = proc.communicate()
 
+print(out)
+
 assert b'Hello World' in out
 assert len(err) == 0
 

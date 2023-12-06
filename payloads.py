@@ -194,16 +194,16 @@ class Monkey:
 
     def get_forms(self):
         return self.forms
-    
+
     def get_js_endpoints(self):
         return self.js_endpoints
-    
+
     def get_js_http_methods(self):
         return self.js_http_methods
-    
+
     def get_js_urls(self):
         return [(self.protocol + self.host + e) for e in self.js_endpoints]
-    
+
     def autoinject_forms(self, payload):
         injectable = {}
         form_inputs = self.get_forms()[0].find_all("input")
@@ -214,7 +214,7 @@ class Monkey:
         res = self.inject_forms(injectable)
 
         return res.decode()
-    
+
     def autoinject_urls(self, payload):
         injectable = {}
         inputs = self.get_inputs()
