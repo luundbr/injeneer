@@ -2,7 +2,7 @@ Low-brow mix of sqlmap and metasploit, in the sense that this tool looks for RCE
 
 
 TODO:
-    proper cli\
+    refactor injection falldown logic\
     csrf tokens/cookies/impersonation\
     easy file passthrough\
     port forwarding\
