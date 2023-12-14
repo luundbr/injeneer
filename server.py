@@ -30,7 +30,7 @@ class ControlTower:
 
     def inject_stage(self, code, client_idx=0):
         if len(self.client_connections) == 0:
-            print('No clients have connected yet')
+            print('ControlTower: No clients have connected yet')
             return
 
         conn = self.client_connections[client_idx]
@@ -51,7 +51,7 @@ class ControlTower:
                 break
 
     def handle_client(self, conn, addr):
-        print(f"{addr} connected")
+        print(f"ControlTower: {addr} connected")
         if self.success_cb:
             self.success_cb(self)
             # self.success_cb(addr)
@@ -71,7 +71,7 @@ class ControlTower:
 
     def start(self):
         self.active = True
-        print(f"Listening on {self.server_socket.getsockname()}")
+        print(f"ControlTower: Listening on {self.server_socket.getsockname()}")
         self.listening_thread = threading.Thread(target=self.start_listening)
         self.listening_thread.daemon = True
         self.listening_thread.start()
@@ -89,7 +89,7 @@ class ControlTower:
         for client_thread in self.client_threads:
             client_thread.join()
 
-        print("Server stopped")
+        print("ControlTower: Server stopped")
 
 
 class ReverseListener:
@@ -115,7 +115,7 @@ class ReverseListener:
         return "".join(chain.from_iterable(self.all_recv))
 
     def handle_client(self, conn, addr):
-        print(f"{addr} connected")
+        print(f"ReverseListener: {addr} connected")
         if self.success_cb:
             self.success_cb(addr)
         conn.settimeout(1) # socket-level timeout is ignored here for some reason
@@ -167,7 +167,7 @@ class ReverseListener:
 
                 time.sleep(0.250)
 
-        print(f"Connection with {addr} closed")
+        print(f"ReverseListener: Connection with {addr} closed")
         self.client_connections.remove(conn)
 
     def start_listening(self):
@@ -185,7 +185,7 @@ class ReverseListener:
 
     def start(self):
         self.active = True
-        print(f"Listening on {self.server_socket.getsockname()}")
+        print(f"ReverseListener: Listening on {self.server_socket.getsockname()}")
         self.listening_thread = threading.Thread(target=self.start_listening)
         self.listening_thread.daemon = True
         self.listening_thread.start()
@@ -203,7 +203,8 @@ class ReverseListener:
         for client_thread in self.client_threads:
             client_thread.join()
 
-        print("Server stopped")
+        print("ReverseListener: Server stopped")
+
 
 if __name__ == "__main__":
     try:
@@ -212,4 +213,4 @@ if __name__ == "__main__":
         time.sleep(10)
     finally:
         listener.stop()
-    
+
