@@ -11,6 +11,7 @@ stager logic
 meta-shell (easy file passthrough, port forwarding, persistence) (those things should be stager stages written in concise dependency-less C)
 csrf tokens/cookies/impersonation
 directly call the kernel through linux64, /lib64/ld-linux-x86-64.so.2, or use alternative shells to get around noexec /tmp
+-h to print something helpful
 ```
 
 ## How to use:
@@ -45,7 +46,7 @@ directly call the kernel through linux64, /lib64/ld-linux-x86-64.so.2, or use al
     CUSTOM_STAGES - comma-separated (stage1,stage2) list of payloads. Filepath when injecting a binary, command when injecting plaintext
     CUSTOM_STAGE_TYPES - comma-separated list of payload types. One of [bin,cmd]. Length has to be equal to length of CUSTOM_STAGES
 
-### Example: automatically find vulnerable fields and get a shell:
+### Example: automatically find vulnerable fields and get a shell
 ```bash
     ./cli.py URL http://<TARGETIP>:<TARGETPORT>/home inject
 ```
