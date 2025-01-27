@@ -1,9 +1,6 @@
 # Injeneer
 
-## In some distant future this should be to metasploit what helix is to neovim. The dream is one obvious short command to RCE on a vulnerable target with zero config or interactivity.
-## Right now it's a low-brow mix of sqlmap and metasploit, in the sense that this tool looks for RCE-vulnerable fields and potentially injects a payload, while at the same time hosting a listener/controller.
-## Another aim is to be easily scriptable.
-
+## Autoinject for ctfs. Don't use this
 
 ```
 TODO:
